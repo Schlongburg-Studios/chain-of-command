@@ -17,6 +17,7 @@ All notable changes to Chain of Command (`cmd_chain`). This project follows [Sem
 - Console command `ccrank <dept> <grade> <pay> <name>` / `ccrank <dept> <grade> remove`.
 - `Config.Structure` (`editable`, `writeQbxJobsFile`, `maxPayment`). A config without it keeps the v1.0 behaviour.
 - Audit actions `rank_create`, `rank_update`, `rank_remove`.
+- Optional `callsignExample` per department (shipped config: `'1-A-12'`). Players see "Format: 1-A-12" in the roster menu, the callsign dialog and the invalid-callsign error, or "Must be unique" when no example is set. `GetDepartment` returns it as `callsignExample`. A warning is printed at start if the example doesn't match `callsignFormat`.
 - Automated tests in `tests/` (repo only, not shipped): QBCore and Qbox mocks, editor on and off. Run them with `lua tests/run.lua` or `python tests/run.py`.
 - Optional `isboss` / `bankAuth` (true or false) on `config.lua` ranks: the framework's boss flags, applied to the grade at every start. Not written = left as the framework has it. The shipped config makes the Chief the boss and clears the flags from the Lieutenant (the stock police job's old boss grade). `bankAuth` is Qbox only.
 - Qbox: an admin `/setjob` on someone who already holds the job (remove, then add, as two events) is recorded as one `sync_grade` and keeps the callsign and divisions, instead of `sync_fire` + `sync_hire`. A removal is applied after a 0.5 s grace period.
@@ -27,6 +28,7 @@ All notable changes to Chain of Command (`cmd_chain`). This project follows [Sem
 - `cmd_chain_audit.target_citizenid` is now nullable (migrated automatically on start).
 
 ### Fixed
+- Players no longer see the raw callsign Lua pattern (e.g. `^%d%-%a%-%d%d$`) in the roster menu or in error messages. The pattern is no longer sent to clients at all.
 - Audit rows and clearing a callsign no longer pass `nil` inside oxmysql parameter arrays, which could shift the remaining parameters (affected console actions and `SetCallsign(..., nil)`).
 
 ## [1.0.0] - 2026-10-02

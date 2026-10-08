@@ -45,7 +45,8 @@ Config.Departments = {
   lspd = {
     label = 'Los Santos Police Department',
     job = 'police',                      -- framework job name
-    callsignFormat = '^%d%-%a%-%d%d$',   -- e.g. 1-A-12
+    callsignFormat = '^%d%-%a%-%d%d$',   -- server-side check only; never shown to players
+    callsignExample = '1-A-12',          -- v1.1: what players see ("Format: 1-A-12")
     ranks = {                            -- top to bottom; grade = framework job grade
       -- With the editor on, these only seed cmd_chain_ranks on first start.
       { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200 },

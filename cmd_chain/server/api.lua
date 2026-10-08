@@ -187,7 +187,8 @@ function API.HasPermission(src, cap, deptId)
     return false
 end
 
----@return table? { id, label, job, callsignFormat, divisions, ranks = { { grade, name, caps } }, members = online members }
+---@return table? { id, label, job, callsignFormat, callsignExample, divisions, ranks = { { grade, name, caps } }, members = online members }
+---callsignFormat is the validation pattern, for scripts only; show players callsignExample instead.
 function API.GetDepartment(deptId)
     local dept = CC.depts[deptId]
     if not dept then return nil end
@@ -216,6 +217,7 @@ function API.GetDepartment(deptId)
         job = dept.job,
         enabled = dept.enabled == true,
         callsignFormat = dept.callsignFormat,
+        callsignExample = dept.callsignExample, -- v1.1: player-facing example, e.g. '1-A-12'
         divisions = dept.divisions,
         ranks = ranks,
         members = members,
@@ -317,22 +319,23 @@ function API.Demote(actorSrc, targetCid, newGrade, deptId)
 end
 
 ---callsign nil or '' clears it.
----@return boolean ok, string? err
+---On 'invalid_callsign' a third value names the department, so callers can show its example.
+---@return boolean ok, string? err, string? deptId
 function API.SetCallsign(actorSrc, targetCid, callsign, deptId)
     local ctx, err = prepare(actorSrc, deptId, targetCid, 'roster.set_callsign')
     if not ctx then return false, err end
     if ctx.targetGrade == nil then return false, 'not_a_member' end
 
     if callsign ~= nil then
-        if type(callsign) ~= 'string' then return false, 'invalid_callsign' end
+        if type(callsign) ~= 'string' then return false, 'invalid_callsign', ctx.dept.id end
         callsign = callsign:match('^%s*(.-)%s*$')
         if callsign == '' then callsign = nil end
     end
 
     local id = ctx.dept.id
     if callsign then
-        if #callsign > 16 then return false, 'invalid_callsign' end
-        if ctx.dept.callsignFormat and not callsign:match(ctx.dept.callsignFormat) then return false, 'invalid_callsign' end
+        if #callsign > 16 then return false, 'invalid_callsign', id end
+        if ctx.dept.callsignFormat and not callsign:match(ctx.dept.callsignFormat) then return false, 'invalid_callsign', id end
         local wanted = callsign:upper()
         for cid, row in pairs(CC.rows[id]) do
             if cid ~= targetCid and row.callsign and row.callsign:upper() == wanted then

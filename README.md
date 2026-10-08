@@ -124,7 +124,8 @@ Config.Departments = {
   lspd = {                                   -- department id
     label = 'Los Santos Police Department',
     job = 'police',                          -- framework job name (one job per department)
-    callsignFormat = '^%d%-%a%-%d%d$',       -- Lua pattern, e.g. 1-A-12. nil = any (max 16 chars)
+    callsignFormat = '^%d%-%a%-%d%d$',       -- Lua pattern, e.g. 1-A-12. nil = any (max 16 chars). Never shown to players.
+    callsignExample = '1-A-12',              -- optional: players see "Format: 1-A-12". Without it: "Must be unique".
     ranks = {                                -- grade = framework job grade
       { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200, isboss = true, bankAuth = true }, -- payment: seed only
       { grade = 5, name = 'Captain',    caps = { 'roster.promote', 'roster.fire' }, payment = 175 },
@@ -151,6 +152,8 @@ Config.Departments = {
 | anything else | Free-form, for your other scripts (e.g. `reports.approve`, `mdt.access`) |
 
 A framework grade between two configured ranks gets the capabilities of the nearest configured rank below it.
+
+**Callsigns:** `callsignFormat` is a Lua pattern that only the server uses to check callsigns. Players never see it. In the roster menu, the callsign dialog and error messages they see `Format: 1-A-12`, taken from `callsignExample`, or `Must be unique` if you leave the example out. Keep the example matching the pattern; the console warns at start if it doesn't. Scripts that show callsign rules to players should use `callsignExample` from `GetDepartment`, not `callsignFormat`.
 
 **Boss flags (`isboss`, `bankAuth`, optional).** These are the framework's own flags on a job grade; other scripts (management menus, society bank accounts) use them to decide who is a boss. Set `true` or `false` on a rank to have Chain of Command apply it to that grade **at every start**; leave a flag out to keep whatever the framework job has. `false` removes the flag. `bankAuth` exists on Qbox only (QBCore ignores it). The in-game rank editor does not change them, and nothing is applied when `Config.Structure.editable = false`. Why the shipped config sets them: the stock `police` job marks grade 4 as boss, and in this ladder grade 4 is the Lieutenant, not the Chief.
 
@@ -190,7 +193,7 @@ if exports.cmd_chain:HasPermission(source, 'reports.approve') then ... end
 
 -- Department config + online members
 local dept = exports.cmd_chain:GetDepartment('lspd')
--- { id, label, job, enabled, callsignFormat, divisions, members = { member, ... },
+-- { id, label, job, enabled, callsignFormat, callsignExample (v1.1), divisions, members = { member, ... },
 --   ranks = { { grade, name, caps (effective), ownCaps (v1.1), payment (v1.1) } } }
 
 -- Everyone, online and offline, highest rank first

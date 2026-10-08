@@ -40,11 +40,15 @@ Config.Structure = {
 -- Any other capability name (e.g. 'reports.write') is free-form, for other scripts.
 --
 -- callsignFormat: a Lua pattern; '^%d%-%a%-%d%d$' matches 1-A-12. Set nil to allow any.
+--   Players never see this pattern.
+-- callsignExample (optional): what players see instead, as "Format: 1-A-12". It should match
+--   callsignFormat (a warning is printed at start if it doesn't). Without it players see "Must be unique".
 Config.Departments = {
     lspd = {
         label = 'Los Santos Police Department',
         job = 'police',
         callsignFormat = '^%d%-%a%-%d%d$',
+        callsignExample = '1-A-12',
         ranks = {
             { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200, isboss = true, bankAuth = true },
             { grade = 5, name = 'Captain',    caps = { 'roster.promote', 'roster.fire' }, payment = 175 },
@@ -61,6 +65,7 @@ Config.Departments = {
     --     label = 'Emergency Medical Services',
     --     job = 'ambulance',
     --     callsignFormat = '^M%-%d%d$',
+    --     callsignExample = 'M-12',
     --     ranks = {
     --         { grade = 4, name = 'Chief',     caps = { 'roster.manage_all' } },
     --         { grade = 3, name = 'Doctor',    caps = { 'roster.hire', 'roster.set_callsign' } },

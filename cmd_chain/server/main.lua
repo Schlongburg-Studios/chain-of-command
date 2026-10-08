@@ -37,7 +37,7 @@ CC.errors = {
     not_a_member = 'Not a member of this department.',
     not_a_promotion = 'The new rank must be higher than the current rank.',
     not_a_demotion = 'The new rank must be lower than the current rank.',
-    invalid_callsign = 'Callsign does not match the department format.',
+    invalid_callsign = 'Invalid callsign.', -- CC.describe adds the department's example (never the pattern)
     callsign_taken = 'Callsign already in use.',
     invalid_division = 'Unknown division.',
     max_jobs = 'That player already holds the maximum number of jobs.',
@@ -59,8 +59,25 @@ CC.errors = {
     internal_error = 'Internal error. Check the server console.',
 }
 
-function CC.describe(err)
+---Player-facing text for an error code. deptId (optional) adds department detail, e.g. the
+---callsign example. Never includes callsignFormat: that Lua pattern is not for players.
+function CC.describe(err, deptId)
+    if err == 'invalid_callsign' then
+        local dept = deptId and CC.depts[deptId]
+        if dept and dept.callsignExample then
+            return ('Invalid callsign. Format: %s.'):format(dept.callsignExample)
+        end
+        return 'Invalid callsign (16 characters max). Must be unique.'
+    end
     return CC.errors[err] or tostring(err)
+end
+
+---What players are told about a department's callsigns: "Format: 1-A-12", or "Must be unique"
+---when the department has no callsignExample. Never the callsignFormat pattern.
+function CC.callsignHint(deptId)
+    local dept = CC.depts[deptId]
+    if dept and dept.callsignExample then return ('Format: %s'):format(dept.callsignExample) end
+    return 'Must be unique'
 end
 
 function CC.debug(msg, ...)
@@ -144,11 +161,18 @@ local function compileDepartments()
         local divisionSet = {}
         for _, division in ipairs(def.divisions or {}) do divisionSet[division] = true end
 
+        assert(def.callsignExample == nil or type(def.callsignExample) == 'string',
+            ('[cmd_chain] department %s: callsignExample must be text, e.g. "1-A-12"'):format(id))
+        if def.callsignExample and def.callsignFormat and not def.callsignExample:match(def.callsignFormat) then
+            print(('^3[cmd_chain] department %s: callsignExample "%s" does not match callsignFormat, so players would be shown an example they cannot use. Fix one of them in config.lua.^0'):format(id, def.callsignExample))
+        end
+
         CC.depts[id] = {
             id = id,
             label = def.label or id,
             job = def.job,
-            callsignFormat = def.callsignFormat,
+            callsignFormat = def.callsignFormat,   -- server-side validation only, never sent to players
+            callsignExample = def.callsignExample, -- what players see ("Format: 1-A-12")
             divisions = def.divisions or {},
             divisionSet = divisionSet,
         }
@@ -785,7 +809,7 @@ lib.callback.register('cmd_chain:getRoster', function(source, deptId)
         label = dept.label,
         ranks = dept.rankList,
         divisions = dept.divisions,
-        callsignFormat = dept.callsignFormat,
+        callsignHint = CC.callsignHint(deptId),
         myGrade = state.grades[deptId],
         myCitizenId = state.citizenid,
         canEditStructure = CC.structureEnabled and (API.IsStructureOwner(source) or CC.hasCap(deptId, state.grades[deptId], 'structure.manage')),
@@ -827,8 +851,8 @@ local function runAction(actor, action, deptId, target, value)
 end
 
 lib.callback.register('cmd_chain:action', function(source, action, deptId, target, value)
-    local ok, err = runAction(source, action, deptId, target, value)
-    return ok, not ok and CC.describe(err) or nil
+    local ok, err, errDept = runAction(source, action, deptId, target, value)
+    return ok, not ok and CC.describe(err, errDept or deptId) or nil
 end)
 
 lib.callback.register('cmd_chain:getStructure', function(source, deptId)
@@ -880,8 +904,8 @@ lib.addCommand('cc', {
     local action = args.action:lower()
     local value, dept = args.value, args.dept
     if action == 'fire' and dept == nil then dept, value = value, nil end
-    local ok, err = runAction(source, action, dept, args.target, value)
-    reply(source, ok, ok and ('Done: %s %s'):format(action, args.target) or CC.describe(err))
+    local ok, err, errDept = runAction(source, action, dept, args.target, value)
+    reply(source, ok, ok and ('Done: %s %s'):format(action, args.target) or CC.describe(err, errDept or dept))
 end)
 
 -- Console / owner: ccrank <dept> <grade> <payment> <name...>   or   ccrank <dept> <grade> remove

@@ -138,4 +138,39 @@ return function(E, T)
         if e.name == 'cmd_chain:client:sync' and e.src == 2 then lastSync = e.args[1] end
     end
     T.check('client sync carries members and caps', lastSync and lastSync.members.lspd and #lastSync.caps.lspd > 0)
+
+    -- Callsign format: players see "Format: 1-A-12" (callsignExample), never the Lua pattern.
+    local json, pattern = E.env.json, E.env.CC.depts.lspd.callsignFormat
+    local function showsPattern(text) return type(text) == 'string' and text:find(pattern, 1, true) ~= nil end
+    local function lastNotify(src)
+        for i = #E.S.clientEvents, 1, -1 do
+            local e = E.S.clientEvents[i]
+            if e.name == 'ox_lib:notify' and e.src == src then return e.args[1].description end
+        end
+    end
+    local roster = E.S.callbacks['cmd_chain:getRoster'](2, 'lspd')
+    T.check('roster menu gets "Format: 1-A-12"', roster and roster.callsignHint == 'Format: 1-A-12', roster and roster.callsignHint)
+    T.check('roster menu payload never contains the pattern', roster and roster.callsignFormat == nil and not showsPattern(json.encode(roster)))
+    local okCs, msgCs = E.S.callbacks['cmd_chain:action'](2, 'callsign', 'lspd', 'OFF1', 'bad')
+    T.check('menu error shows the example', okCs == false and msgCs == 'Invalid callsign. Format: 1-A-12.', msgCs)
+    E.S.commands.cc(2, { action = 'callsign', target = 'OFF1', value = 'bad', dept = 'lspd' })
+    T.check('/cc error shows the example', lastNotify(2) == 'Invalid callsign. Format: 1-A-12.', lastNotify(2))
+    E.S.commands.cc(2, { action = 'callsign', target = 'OFF1', value = 'bad' })
+    T.check('/cc error without a dept argument still names the example', lastNotify(2) == 'Invalid callsign. Format: 1-A-12.', lastNotify(2))
+    T.check('GetDepartment exposes callsignExample for scripts', API.GetDepartment('lspd').callsignExample == '1-A-12')
+
+    local example = E.env.CC.depts.lspd.callsignExample
+    E.env.CC.depts.lspd.callsignExample = nil
+    roster = E.S.callbacks['cmd_chain:getRoster'](2, 'lspd')
+    T.check('no example: menu says "Must be unique"', roster.callsignHint == 'Must be unique', roster.callsignHint)
+    okCs, msgCs = E.S.callbacks['cmd_chain:action'](2, 'callsign', 'lspd', 'OFF1', 'bad')
+    T.check('no example: error says "Must be unique", no pattern', okCs == false and msgCs:find('Must be unique', 1, true) and not showsPattern(msgCs), msgCs)
+    E.env.CC.depts.lspd.callsignExample = example
+
+    -- Nothing sent to any client, ever, contains the pattern.
+    local leaked
+    for _, e in ipairs(E.S.clientEvents) do
+        if showsPattern(json.encode(e.args)) then leaked = e.name end
+    end
+    T.check('no client event ever carries the callsign pattern', leaked == nil, leaked)
 end

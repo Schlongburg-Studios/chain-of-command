@@ -46,7 +46,7 @@ With the rank editor on (default), grades 5 and 6 are created automatically on f
 | 16 | As B: `/cc hire <D id> 1` | Done. D is police grade 1 (QB: replaces job; Qbox: job added, set primary if D was unemployed). | ☐ | ☐ |
 | 17 | As B: `/cc hire <D id> 1` again | Denied: "Already a member" | ☐ | ☐ |
 | **Callsigns and divisions** |||||
-| 18 | As C (Sergeant): `/cc callsign <D> abc` | Denied: format | ☐ | ☐ |
+| 18 | As C (Sergeant): `/cc callsign <D> abc` | Denied: "Invalid callsign. Format: 1-A-12." The `^%d...` pattern never appears, here or in `/roster` → member → **Set callsign** (shows "Format: 1-A-12"). | ☐ | ☐ |
 | 19 | As C: `/cc callsign <D> 1-A-12` | Done. Shows `[1-A-12]` in `/roster`. | ☐ | ☐ |
 | 20 | As B: `/cc callsign <C> 1-a-12` | Denied: "Callsign already in use" (case-insensitive) | ☐ | ☐ |
 | 21 | As C: `/cc callsign <B> 2-B-22` | Denied: B outranks C | ☐ | ☐ |

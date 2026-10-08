@@ -115,10 +115,10 @@ local function openMember(data, member)
     if below and HasPermission('roster.set_callsign', deptId) then
         options[#options + 1] = {
             title = 'Set callsign', icon = 'id-badge',
-            description = data.callsignFormat and ('Format: %s'):format(data.callsignFormat) or nil,
+            description = data.callsignHint,
             onSelect = function()
                 local input = lib.inputDialog('Callsign for ' .. member.name, {
-                    { type = 'input', label = 'Callsign (empty clears)', default = member.callsign or '' },
+                    { type = 'input', label = 'Callsign (empty clears)', description = data.callsignHint, default = member.callsign or '' },
                 })
                 if input then act(deptId, 'callsign', member.citizenid, input[1]) end
             end,
