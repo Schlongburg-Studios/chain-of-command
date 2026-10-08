@@ -3,3 +3,13 @@ cmd_chain/structure.cache.json
 
 # Paid doc pack: sold separately, never commit
 docs-pack/
+
+# Private planning notes: kept locally, never published
+TODAY.md
+START_PROMPT.md
+
+# Store artwork: kept out of the repo
+store-banners/
+
+# Release build output
+dist/

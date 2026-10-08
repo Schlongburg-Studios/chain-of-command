@@ -53,7 +53,9 @@ QBCore and Qbox. ESX support is planned.
 `ox_lib` and `oxmysql`.
 
 **My ranks aren't showing up. Why?**
-Chain of Command reads ranks from your framework's job grades. Make sure the `job` and `grade` values in `config.lua` match your framework's jobs file exactly.
+With the rank editor on (the default), Chain of Command creates the job grades for you. Check the server console for `[cmd_chain] ready` and any red lines.
+• **Qbox:** `server.cfg` needs `add_filesystem_permission cmd_chain write qbx_core` after `ensure cmd_chain`. If it's missing, the console shows a red **CANNOT SAVE** block with the exact line to add.
+• **Editor turned off:** the `job` and `grade` values in `config.lua` must match your framework's jobs file exactly.
 
 **Can I edit the paid scripts?**
 Config and language files are always editable. Core logic is protected (escrowed) to prevent leaks.
@@ -86,9 +88,9 @@ Build your rank structure without touching a file. Open `/ranks` to add as many 
 🔒 Server owners can edit every rank. Chiefs can edit only the ranks below them and can't give out powers they don't have.
 
 **Get it**
-📦 Download: [GitHub release link]
-📖 Install guide (5 minutes): [README link]
-🧑‍💻 Developer API docs: [API docs link]
+📦 Download: <https://github.com/Schlongburg-Studios/chain-of-command/releases/latest>
+📖 Install guide (5 minutes): <https://github.com/Schlongburg-Studios/chain-of-command#5-minute-install>
+🧑‍💻 Developer API docs: <https://github.com/Schlongburg-Studios/chain-of-command#api-v1x>
 
 **Need help?** Post in #free-support with your framework, the version, and your error from the server console.
 ---
@@ -116,8 +118,8 @@ We usually respond within [24 hours]. Please don't ping staff. We'll get to you 
 **🗺️ Roadmap**
 
 **✅ Now**
-⛓️ **Chain of Command v1:** free department core (QBCore and Qbox)
-📄 **Police Department Starter Docs:** SOP manual, penal code, training program, rank structure, Discord template
+⛓️ **Chain of Command v1.1:** free department core with an in-game rank editor (QBCore and Qbox)
+📄 **Police Department Starter Docs** ($9.99): SOP manual, penal code, training program, rank structure, Discord template → [Tebex link: add when the doc pack is live]
 
 **🔨 Next**
 🚓 **Police MDT Suite** built on Chain of Command: reports, records, warrants, roster and pay management in one place

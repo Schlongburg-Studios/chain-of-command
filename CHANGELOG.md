@@ -2,7 +2,7 @@
 
 All notable changes to Chain of Command (`cmd_chain`). This project follows [Semantic Versioning](https://semver.org/): the public API (exports and events) never breaks within a major version.
 
-## [1.1.0] - 2026-10-02
+## [1.1.0] - 2026-10-08
 
 ### Added
 - **In-game rank structure editor** (`/ranks`, or `/roster` → Rank structure): add ranks at any free grade (0–255), rename them, set pay, edit capabilities, and delete empty ranks.

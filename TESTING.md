@@ -2,6 +2,16 @@
 
 Run the whole list once on a **clean QBCore** server and once on a **clean Qbox** server. Tick each box per framework.
 
+## Test runs for v1.1.0
+
+| Framework | Date | Result |
+| --- | --- | --- |
+| QBCore (txAdmin recipe) | 2026-10-03, re-checked 2026-10-08 on the release code | **Pass.** Every applicable row. Row 49's expected text was corrected; it was a checklist error, not a bug. |
+| Qbox (fresh txAdmin recipe) | 2026-10-08 | **Pass.** Rows 6-9, 12-13, 28-32, 30a, 37-38, 42a-42c, 43, 46, 53, 55, 60-61. The other rows run the same shared code that passed on QBCore. |
+| Automated tests (`tests/`) | 2026-10-08 | **Pass.** 545 of 545. |
+
+Not run on either server: row 35 (needs a client executor; covered by the automated tests) and row 62 (turning the editor off). No code bugs were found on real servers.
+
 **Qbox setup:** `server.cfg` needs `add_filesystem_permission cmd_chain write qbx_core` after `ensure cmd_chain` (README step 2). Without it cmd_chain cannot save `jobs.lua`; rows 42a–42c test exactly that, so run them first and add the line at 42c.
 
 **Setup:** you need 3 characters you can log into (two clients, or relog between characters). Note their citizenids:

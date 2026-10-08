@@ -26,6 +26,8 @@ cmd_chain/
   structure.cache.json            (generated at runtime; do not commit)
 README.md  LICENSE  CHANGELOG.md  TESTING.md  .gitignore   (repo root)
 tests/                            automated tests (not shipped; see tests/README.md)
+release/                          GitHub release notes and Cfx.re forum post drafts
+dist/                             built release zips (git-ignored; build with git archive)
 ```
 
 ## Definition of done (per change)

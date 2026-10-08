@@ -13,7 +13,7 @@ Define your departments, ranks, divisions, callsigns and permissions **once**. E
 
 ## 5-minute install
 
-1. **Download** and put the `cmd_chain` folder in your `resources` directory.
+1. **Download** `cmd_chain-v1.1.0.zip` from the [latest release](https://github.com/Schlongburg-Studios/chain-of-command/releases/latest) and put the `cmd_chain` folder in your `resources` directory.
 2. **Ensure order** in `server.cfg`. Your framework must start first:
    ```cfg
    ensure oxmysql
