@@ -69,7 +69,7 @@ Open a ticket with your Tebex transaction ID.
 
 ---
 **⛓️ Chain of Command: Free Department Core**
-**Current version:** v[1.0.0] · **License:** MIT · **Frameworks:** QBCore, Qbox
+**Current version:** v1.1.0 · **License:** MIT · **Frameworks:** QBCore, Qbox
 
 **What it does**
 Defines your departments, ranks, divisions, callsigns and permissions **once**. Every compatible police, EMS or DOJ script reads from it, so there's no more editing job names across ten resources.
@@ -77,8 +77,13 @@ Defines your departments, ranks, divisions, callsigns and permissions **once**. 
 ✅ Multi-department (LSPD, BCSO, SAHP, EMS, DOJ, or anything you name)
 ✅ Rank-based permissions that flow down the chain of command
 ✅ Callsigns and divisions (Patrol, Detectives, SWAT, K9, FTO...)
+✅ In-game roster: hire, fire, promote, demote with `/roster`
 ✅ Server-side permission checks and a full audit log
 ✅ Simple API for developers: `exports.cmd_chain:HasPermission(src, 'reports.approve')`
+
+🆕 **New in v1.1: in-game rank editor**
+Build your rank structure without touching a file. Open `/ranks` to add as many ranks as you need, rename them, set pay and choose permissions. Changes are saved, and your framework's job grades are created for you.
+🔒 Server owners can edit every rank. Chiefs can edit only the ranks below them and can't give out powers they don't have.
 
 **Get it**
 📦 Download: [GitHub release link]

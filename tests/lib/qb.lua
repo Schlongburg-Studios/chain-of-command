@@ -111,6 +111,7 @@ function M.new(env, S, deepcopy, opts)
         return info and deepcopy(info.grades[tostring(grade)])
     end
     function fw.externalSetJob(cid, job, grade) setJob(cid, job, grade) end
+    fw.externalSetJobReplacing = fw.externalSetJob -- qb-core's SetJob is a single step
     function fw.externalRemoveJob(cid) setJob(cid, 'unemployed', 0) end
     function fw.setDuty(cid, onDuty)
         P[cid].job.onduty = onDuty

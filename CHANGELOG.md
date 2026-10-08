@@ -18,6 +18,10 @@ All notable changes to Chain of Command (`cmd_chain`). This project follows [Sem
 - `Config.Structure` (`editable`, `writeQbxJobsFile`, `maxPayment`). A config without it keeps the v1.0 behaviour.
 - Audit actions `rank_create`, `rank_update`, `rank_remove`.
 - Automated tests in `tests/` (repo only, not shipped): QBCore and Qbox mocks, editor on and off. Run them with `lua tests/run.lua` or `python tests/run.py`.
+- Optional `isboss` / `bankAuth` (true or false) on `config.lua` ranks: the framework's boss flags, applied to the grade at every start. Not written = left as the framework has it. The shipped config makes the Chief the boss and clears the flags from the Lieutenant (the stock police job's old boss grade). `bankAuth` is Qbox only.
+- Qbox: an admin `/setjob` on someone who already holds the job (remove, then add, as two events) is recorded as one `sync_grade` and keeps the callsign and divisions, instead of `sync_fire` + `sync_hire`. A removal is applied after a 0.5 s grace period.
+- Two job events arriving while a member row is being written no longer produce a duplicate `sync_hire` audit row and a duplicate `memberUpdated` event.
+- Qbox: saving `jobs.lua` needs `add_filesystem_permission cmd_chain write qbx_core` in `server.cfg` (FiveM blocks writes into another resource). If it is missing, a red `CANNOT SAVE qbx_core/shared/jobs.lua` block names the exact line to add; rank edits and hires/promotions into ranks that are not in `jobs.lua` yet are refused (`jobs_file_unwritable`) so nobody is removed from their job by `qbx:cleanPlayerGroups` at the next restart. The backups are checked before `jobs.lua` is overwritten, and the written file is read back.
 
 ### Changed
 - `cmd_chain_audit.target_citizenid` is now nullable (migrated automatically on start).

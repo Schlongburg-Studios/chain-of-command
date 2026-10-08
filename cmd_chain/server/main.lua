@@ -42,6 +42,7 @@ CC.errors = {
     invalid_division = 'Unknown division.',
     max_jobs = 'That player already holds the maximum number of jobs.',
     structure_locked = 'Rank editing is turned off (Config.Structure.editable).',
+    jobs_file_unwritable = 'cmd_chain cannot save the jobs file, so this change would be lost on restart. Ask the server owner to check the console.',
     unknown_rank = 'That rank does not exist.',
     invalid_rank = 'Invalid rank data.',
     invalid_rank_name = 'Rank name must be 1-50 characters.',
@@ -119,8 +120,23 @@ function CC.rankRecords(deptId)
     return records
 end
 
+---Optional framework flags per grade from config.lua ranks: CC.rankFlags[deptId][grade] =
+---{ isboss = bool?, bankAuth = bool? }. A flag that is not written in config.lua is left as the
+---framework has it. They are applied at every start (the rank editor does not change them).
+CC.rankFlags = {}
+
 local function compileDepartments()
     for id, def in pairs(Config.Departments) do
+        CC.rankFlags[id] = {}
+        for _, rank in ipairs(def.ranks or {}) do
+            local flags = {}
+            for _, flag in ipairs({ 'isboss', 'bankAuth' }) do
+                local value = rank[flag]
+                assert(value == nil or type(value) == 'boolean', ('[cmd_chain] department %s, rank "%s": %s must be true or false'):format(id, tostring(rank.name), flag))
+                flags[flag] = value
+            end
+            CC.rankFlags[id][rank.grade] = flags
+        end
         assert(type(def.job) == 'string', ('[cmd_chain] department %s has no job'):format(id))
         assert(not CC.jobToDept[def.job], ('[cmd_chain] job %s is mapped to two departments (%s, %s)'):format(def.job, CC.jobToDept[def.job], id))
         assert(type(def.ranks) == 'table' and #def.ranks > 0, ('[cmd_chain] department %s has no ranks'):format(id))
@@ -192,19 +208,32 @@ local function copy(list)
     return out
 end
 
+-- The in-memory row is changed BEFORE the database call. The call yields, and Qbox fires several
+-- job events back to back for one change (e.g. /setjob): a second handler running during that
+-- yield must already see the new state, or it would "hire" the same citizen again and write a
+-- duplicate sync_hire audit row and a duplicate memberUpdated event.
 function CC.ensureRow(deptId, cid)
     local row = CC.rows[deptId][cid]
     if row then return row end
-    MySQL.insert.await('INSERT IGNORE INTO cmd_chain_members (citizenid, dept, divisions) VALUES (?, ?, ?)', { cid, deptId, '[]' })
     row = { callsign = nil, divisions = {}, hiredAt = os.time() }
     CC.rows[deptId][cid] = row
+    local ok, err = pcall(MySQL.insert.await, 'INSERT IGNORE INTO cmd_chain_members (citizenid, dept, divisions) VALUES (?, ?, ?)', { cid, deptId, '[]' })
+    if not ok then
+        CC.rows[deptId][cid] = nil
+        error(err, 0)
+    end
     return row
 end
 
 function CC.deleteRow(deptId, cid)
-    if not CC.rows[deptId][cid] then return false end
-    MySQL.query.await('DELETE FROM cmd_chain_members WHERE citizenid = ? AND dept = ?', { cid, deptId })
+    local row = CC.rows[deptId][cid]
+    if not row then return false end
     CC.rows[deptId][cid] = nil
+    local ok, err = pcall(MySQL.query.await, 'DELETE FROM cmd_chain_members WHERE citizenid = ? AND dept = ?', { cid, deptId })
+    if not ok then
+        CC.rows[deptId][cid] = row
+        error(err, 0)
+    end
     return true
 end
 
@@ -285,6 +314,27 @@ end
 
 -- ───────────────────────────── sync with the framework ─────────────────────────────
 
+-- Qbox's /setjob (with qbx:setjob_replaces = true, the recipe default) first REMOVES the player from
+-- their current job and then adds the new one, as two events. Treated literally that looks like a
+-- fire followed by a hire: callsign and divisions would be wiped and the audit log would say
+-- "fired, hired" for a plain promotion. A removal that is not undone within this window is real.
+local FIRE_GRACE_MS = 500
+CC.pendingFire = {} -- 'cid:dept' -> { prev = grade before the removal }
+
+local function finishFire(cid, deptId)
+    local key = cid .. ':' .. deptId
+    local pending = CC.pendingFire[key]
+    if not pending then return end -- the grade came back; that was handled as a rank change
+    CC.pendingFire[key] = nil
+    if not CC.rows[deptId] or not CC.rows[deptId][cid] then return end
+    local src = CC.srcByCid[cid]
+    local state = src and CC.online[src]
+    if state and state.grades[deptId] ~= nil then return end
+    CC.deleteRow(deptId, cid)
+    Audit.log(deptId, nil, cid, 'sync_fire', pending.prev, nil)
+    CC.emitMember(cid, deptId, nil)
+end
+
 ---Brings member rows in line with the framework (the source of truth for rank).
 ---Changes made outside cmd_chain (e.g. /setjob) are audited with a NULL actor.
 ---@param info { name: string, duty: table<string, boolean>, online: boolean }
@@ -303,10 +353,22 @@ function CC.reconcileCitizen(cid, grades, prevGrades, info)
                 CC.emitMember(cid, deptId, CC.buildMember(deptId, cid, grade, info.duty[deptId], info.name, info.online))
             end
         elseif grade == nil and hadRow then
-            CC.deleteRow(deptId, cid)
-            if not quiet then
-                Audit.log(deptId, nil, cid, 'sync_fire', prev, nil)
-                CC.emitMember(cid, deptId, nil)
+            if quiet then
+                CC.deleteRow(deptId, cid) -- cmd_chain's own fire: it writes its own audit row
+            else
+                local key = cid .. ':' .. deptId
+                if not CC.pendingFire[key] then
+                    CC.pendingFire[key] = { prev = prev }
+                    SetTimeout(FIRE_GRACE_MS, function() finishFire(cid, deptId) end)
+                end
+            end
+        elseif grade ~= nil and CC.pendingFire[cid .. ':' .. deptId] then
+            -- removed and added again within the grace window: one rank change (or nothing)
+            local pending = CC.pendingFire[cid .. ':' .. deptId]
+            CC.pendingFire[cid .. ':' .. deptId] = nil
+            if not quiet and pending.prev ~= nil and pending.prev ~= grade then
+                Audit.log(deptId, nil, cid, 'sync_grade', pending.prev, grade)
+                CC.emitMember(cid, deptId, CC.buildMember(deptId, cid, grade, info.duty[deptId], info.name, info.online))
             end
         elseif grade ~= nil and prev ~= nil and prev ~= grade and not quiet then
             Audit.log(deptId, nil, cid, 'sync_grade', prev, grade)
@@ -416,8 +478,17 @@ function CC.pushRanks(deptId)
     for grade, rank in pairs(dept.ranks) do
         local current = Bridge.getJobGradeData(dept.job, grade)
         local payment = rank.payment or 0
-        if not current or current.name ~= rank.name or tonumber(current.payment or 0) ~= payment then
-            local ok, err = Bridge.upsertJobGrade(dept.job, grade, { name = rank.name, payment = payment })
+        local data = { name = rank.name, payment = payment }
+        local flagsDiffer = false
+        for _, flag in ipairs(Bridge.gradeFlags or {}) do
+            local wanted = (CC.rankFlags[deptId][grade] or {})[flag]
+            if wanted ~= nil then
+                data[flag] = wanted
+                if current and ((current[flag] == true) ~= wanted) then flagsDiffer = true end
+            end
+        end
+        if not current or flagsDiffer or current.name ~= rank.name or tonumber(current.payment or 0) ~= payment then
+            local ok, err = Bridge.upsertJobGrade(dept.job, grade, data)
             if ok then
                 changed = true
             else
@@ -428,11 +499,40 @@ function CC.pushRanks(deptId)
     return changed
 end
 
+-- While the jobs file cannot be written (CC.jobsFileBroken), ranks cannot be edited and nobody may
+-- be put into a grade that is not in the file on disk: qbx_core removes players holding unknown
+-- grades at its next start when `qbx:cleanPlayerGroups` is true.
+CC.jobsFileBroken = false
+
+---Prints the problem as one hard-to-miss red block, once per start.
+function CC.reportJobsFileBroken(err)
+    if CC.jobsFileBroken then return end
+    CC.jobsFileBroken = true
+    local lines = {
+        '',
+        '^1[cmd_chain] ================================================================^0',
+        ('^1[cmd_chain] CANNOT SAVE qbx_core/shared/jobs.lua (%s)^0'):format(tostring(err)),
+        '^1[cmd_chain] FiveM does not let one resource write into another by default.^0',
+        '^1[cmd_chain] Add this line to server.cfg (after "ensure cmd_chain") and restart:^0',
+        '^3[cmd_chain]     add_filesystem_permission cmd_chain write qbx_core^0',
+        '^1[cmd_chain] Until then, rank edits are refused and nobody can be hired or promoted^0',
+        '^1[cmd_chain] into a rank that is not in jobs.lua yet: after a restart qbx_core would^0',
+        '^1[cmd_chain] remove them from the job (qbx:cleanPlayerGroups).^0',
+        '^1[cmd_chain] ================================================================^0',
+        '',
+    }
+    print(table.concat(lines, '\n'))
+end
+
 ---Saves framework job data to disk where the framework supports it (Qbox jobs.lua).
 function CC.persistFramework()
     if not Config.Structure.writeQbxJobsFile then return end
     local ok, err = Bridge.persistJobs()
-    if not ok then print(('^1[cmd_chain] could not save jobs file: %s^0'):format(err)) end
+    if ok then
+        CC.jobsFileBroken = false
+    else
+        CC.reportJobsFileBroken(err)
+    end
 end
 
 ---Boot cache: read synchronously at load so grades exist in the framework before anyone
@@ -613,15 +713,24 @@ MySQL.ready(function()
         createTables()
         loadRows()
         local frameworkChanged = false
+        local probed = false
         for _, deptId in ipairs(CC.deptOrder) do
             local dept = CC.depts[deptId]
             dept.enabled = jobExists(dept)
             if dept.enabled and CC.structureEnabled then
+                if not probed and Config.Structure.writeQbxJobsFile and Bridge.canPersist then
+                    probed = true
+                    if not Bridge.canPersist() then CC.reportJobsFileBroken('write_failed') end
+                end
                 CC.loadStructure(dept)
                 if CC.pushRanks(deptId) then frameworkChanged = true end
             end
         end
-        if frameworkChanged then CC.persistFramework() end
+        -- Not only when something changed just now: the boot cache has usually pushed the grades
+        -- into the framework already (so nothing "changed"), while jobs.lua on disk may still be
+        -- stale, e.g. after the first start failed or before the file permission was added.
+        -- persistJobs() writes nothing when the file is already up to date.
+        if frameworkChanged or CC.structureEnabled then CC.persistFramework() end
         if CC.structureEnabled then CC.saveCache() end
         for _, deptId in ipairs(CC.deptOrder) do
             local dept = CC.depts[deptId]

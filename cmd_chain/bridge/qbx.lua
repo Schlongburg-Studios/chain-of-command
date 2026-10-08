@@ -9,6 +9,9 @@ if state ~= 'started' and state ~= 'starting' then return end
 local qbx = exports.qbx_core
 Bridge = { name = 'qbx' }
 
+---Optional per-grade flags that config.lua ranks may set (see Config.Departments).
+Bridge.gradeFlags = { 'isboss', 'bankAuth' }
+
 if not IsDuplicityVersion() then
     ---@param cb fun()
     function Bridge.onJobUpdate(cb)
@@ -135,6 +138,9 @@ function Bridge.upsertJobGrade(jobName, grade, data)
     local merged = job.grades[grade] or {}
     merged.name = data.name
     merged.payment = data.payment
+    for _, flag in ipairs(Bridge.gradeFlags) do
+        if data[flag] ~= nil then merged[flag] = data[flag] or nil end -- false removes the key
+    end
     qbx:UpsertJobGrade(jobName, grade, merged, false)
     local check = Bridge.getJobGradeData(jobName, grade)
     if not check or check.name ~= data.name then return false, 'framework_rejected' end
@@ -226,14 +232,41 @@ function Bridge.persistJobs()
 
     local current = LoadResourceFile('qbx_core', JOBS_FILE)
     if current == content then return true end
+    -- Never overwrite the file unless the backups were really written.
     if current then
         if not LoadResourceFile('qbx_core', ORIGINAL_BACKUP) then
-            SaveResourceFile('qbx_core', ORIGINAL_BACKUP, current, -1)
+            if not SaveResourceFile('qbx_core', ORIGINAL_BACKUP, current, -1) then return false, 'write_failed' end
         end
-        SaveResourceFile('qbx_core', LAST_BACKUP, current, -1)
+        if not SaveResourceFile('qbx_core', LAST_BACKUP, current, -1) then return false, 'write_failed' end
     end
     if not SaveResourceFile('qbx_core', JOBS_FILE, content, -1) then return false, 'write_failed' end
+    -- Read it back: a write that "succeeded" but did not land is the same problem.
+    if LoadResourceFile('qbx_core', JOBS_FILE) ~= content then return false, 'write_failed' end
     return true
+end
+
+---Is this grade in the jobs.lua file on disk (what qbx_core loads at its next start)? The file is
+---a plain `return { ... }` table, so it is loaded with an empty environment. Unreadable = no.
+---@return boolean
+function Bridge.gradeOnDisk(jobName, grade)
+    local text = LoadResourceFile('qbx_core', JOBS_FILE)
+    if type(text) ~= 'string' then return false end
+    local chunk = load(text, 'jobs.lua', 't', {})
+    if not chunk then return false end
+    local ok, jobs = pcall(chunk)
+    if not ok or type(jobs) ~= 'table' then return false end
+    local job = jobs[jobName]
+    return type(job) == 'table' and type(job.grades) == 'table' and job.grades[grade] ~= nil
+end
+
+---Can cmd_chain write qbx_core/shared/jobs.lua? FiveM blocks writing into another resource
+---unless server.cfg allows it (`add_filesystem_permission cmd_chain write qbx_core`). Writes
+---the file's own content back, so nothing changes when it works.
+---@return boolean
+function Bridge.canPersist()
+    local current = LoadResourceFile('qbx_core', JOBS_FILE)
+    -- SaveResourceFile returns 1 on success and false on failure, so test truthiness, not `== true`.
+    return current ~= nil and SaveResourceFile('qbx_core', JOBS_FILE, current, -1) and true or false
 end
 
 ---Everyone holding the job, online or offline. Reads qbx_core's own player_groups

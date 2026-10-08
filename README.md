@@ -20,7 +20,9 @@ Define your departments, ranks, divisions, callsigns and permissions **once**. E
    ensure ox_lib
    ensure qbx_core      # or: ensure qb-core
    ensure cmd_chain
+   add_filesystem_permission cmd_chain write qbx_core   # Qbox only: REQUIRED. Delete this line on QBCore.
    ```
+   **Qbox: the `add_filesystem_permission` line is required, not optional.** FiveM does not let one resource write into another unless you allow it, and Chain of Command saves your ranks into `qbx_core/shared/jobs.lua`. Without the line the console shows a red `CANNOT SAVE qbx_core/shared/jobs.lua` block at start, rank edits are refused, and nobody can be hired into a rank that is not in `jobs.lua` yet. (Reason: `qbx_core` removes players from jobs and grades it does not know at its next start when `qbx:cleanPlayerGroups` is `true`, which the Qbox recipe sets.) QBCore needs nothing.
 3. **Database:** nothing to do. The tables are created on first start. If you prefer to run SQL yourself, use `cmd_chain/sql/install.sql`.
 4. **Job grades:** with the rank editor on (`Config.Structure.editable = true`, the default), **skip this step**. Chain of Command creates any missing grades from `config.lua` on first start. With the editor off, each rank in `config.lua` needs the same grade in your framework's job. The default `police` job only has grades 0–4, so add grades 5 and 6 if you keep the example config:
    - QBCore, `qb-core/shared/jobs.lua` (string keys):
@@ -102,6 +104,8 @@ Every change is written to the audit log (`rank_create`, `rank_update`, `rank_re
 
 If an admin uses the framework's `/setjob`, Chain of Command notices, creates or removes the member record, and writes it to the audit log as `sync_hire`, `sync_fire` or `sync_grade` with a `NULL` actor.
 
+On Qbox, `/setjob` on someone who already has the job first removes the old job and then adds the new one (with `qbx:setjob_replaces`, the recipe default). Chain of Command waits half a second after a removal before treating it as a firing, so that sequence is recorded as one `sync_grade` and the member keeps their callsign and divisions. A real removal is therefore applied about half a second late.
+
 ---
 
 ## Config reference (`config.lua`)
@@ -122,9 +126,9 @@ Config.Departments = {
     job = 'police',                          -- framework job name (one job per department)
     callsignFormat = '^%d%-%a%-%d%d$',       -- Lua pattern, e.g. 1-A-12. nil = any (max 16 chars)
     ranks = {                                -- grade = framework job grade
-      { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200 }, -- payment: seed only
+      { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200, isboss = true, bankAuth = true }, -- payment: seed only
       { grade = 5, name = 'Captain',    caps = { 'roster.promote', 'roster.fire' }, payment = 175 },
-      { grade = 4, name = 'Lieutenant', caps = { 'roster.hire', 'roster.set_division' } },
+      { grade = 4, name = 'Lieutenant', caps = { 'roster.hire', 'roster.set_division' }, isboss = false, bankAuth = false },
       { grade = 3, name = 'Sergeant',   caps = { 'roster.set_callsign', 'reports.approve' } },
       { grade = 2, name = 'Corporal',   caps = { } },
       { grade = 1, name = 'Officer',    caps = { 'reports.write' } },
@@ -147,6 +151,8 @@ Config.Departments = {
 | anything else | Free-form, for your other scripts (e.g. `reports.approve`, `mdt.access`) |
 
 A framework grade between two configured ranks gets the capabilities of the nearest configured rank below it.
+
+**Boss flags (`isboss`, `bankAuth`, optional).** These are the framework's own flags on a job grade; other scripts (management menus, society bank accounts) use them to decide who is a boss. Set `true` or `false` on a rank to have Chain of Command apply it to that grade **at every start**; leave a flag out to keep whatever the framework job has. `false` removes the flag. `bankAuth` exists on Qbox only (QBCore ignores it). The in-game rank editor does not change them, and nothing is applied when `Config.Structure.editable = false`. Why the shipped config sets them: the stock `police` job marks grade 4 as boss, and in this ladder grade 4 is the Lieutenant, not the Chief.
 
 ---
 
@@ -209,7 +215,7 @@ local rows = exports.cmd_chain:GetAuditLog('lspd', 50)                  -- optio
 ```
 
 **Error codes** (`err`): `not_ready`, `actor_not_found`, `unknown_department`, `department_disabled`, `department_required`, `not_in_department`, `no_permission`, `rate_limited`, `invalid_target`, `target_not_found`, `cannot_target_self`, `target_rank_too_high`, `rank_ceiling`, `invalid_grade`, `grade_missing_in_framework`, `already_member`, `not_a_member`, `not_a_promotion`, `not_a_demotion`, `invalid_callsign`, `callsign_taken`, `invalid_division`, `max_jobs` (Qbox), `player_not_found`, `internal_error`.
-Rank editor (v1.1): `structure_locked`, `unknown_rank`, `invalid_rank`, `invalid_rank_name`, `invalid_payment`, `invalid_capability`, `cannot_grant_capability`, `affects_higher_ranks`, `rank_in_use`, `last_rank`, `job_not_found`, `framework_rejected`, `update_qb_core`.
+Rank editor (v1.1): `structure_locked`, `jobs_file_unwritable` (Qbox: see the `add_filesystem_permission` line in the install steps), `unknown_rank`, `invalid_rank`, `invalid_rank_name`, `invalid_payment`, `invalid_capability`, `cannot_grant_capability`, `affects_higher_ranks`, `rank_in_use`, `last_rank`, `job_not_found`, `framework_rejected`, `update_qb_core`.
 
 ### Client exports
 

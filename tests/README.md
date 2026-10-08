@@ -25,8 +25,8 @@ Each suite runs in a **fresh sandbox** for every combination:
 
 | Framework | Editor | Suites |
 | --- | --- | --- |
-| Qbox | on | roster, sync, structure, qbx_multijob |
-| QBCore | on | roster, sync, structure |
+| Qbox | on | roster, sync, structure, qbx_multijob, jobs_file, boss_flags |
+| QBCore | on | roster, sync, structure, boss_flags |
 | Qbox | off | roster, sync, qbx_multijob |
 | QBCore | off | roster, sync |
 
@@ -35,6 +35,8 @@ Each suite runs in a **fresh sandbox** for every combination:
 | `suites/roster.lua` | The CLAUDE.md must-pass checks (Captain can't promote to Captain, Cadet can't hire, offline member in roster), rank ceiling, inherited permissions, hire/fire/promote/demote, callsigns, divisions, offline targets, rate limit, console actor, client callback and `/cc` paths |
 | `suites/sync.lua` | Startup reconcile, external `/setjob` (sync_hire / sync_grade / sync_fire), duty events, logout/login |
 | `suites/structure.lua` | v1.1 rank editor: seeding, grade push, Qbox `jobs.lua` write (job `type` kept, backup), QBCore never writing qb-core files, owner ACE, `structure.manage` limits, delete guards, `ccrank`, restart from the database, boot cache before the database is ready, editor off |
+| `suites/jobs_file.lua` | Qbox: FiveM's file sandbox. Without `add_filesystem_permission cmd_chain write qbx_core` the red `CANNOT SAVE` block prints once, `jobs.lua` is never overwritten without a backup, a write that does not land is caught by a read-back, rank edits and hires/promotions into grades missing from the file are refused (`jobs_file_unwritable`) while grades already in the file keep working. The mock enforces the sandbox by default (`grants` option), so a missing grant can no longer pass unnoticed. |
+| `suites/boss_flags.lua` | Optional `isboss` / `bankAuth` on config ranks: applied (true and false, `false` removes the key), left alone when not written, re-applied by `pushRanks`, kept by rank edits and in `jobs.lua`, `bankAuth` never written on QBCore, typos rejected at start naming the rank, nothing applied with the editor off |
 | `suites/qbx_multijob.lua` | Qbox: promoting a secondary-job officer keeps their primary job, duty only on the primary job, `max_jobs` errors, hire sets primary when unemployed |
 
 The default world is CHIEF (grade 6, src 1), CAPT (5, src 2) and CADET (0, src 3) online; CIV (src 4) and CIV2 (src 5) online civilians; and OFF1, an offline Officer (grade 1). Framework police grades match the shipped defaults (0–4). With the editor off, grades 5 and 6 are pre-added, as README install step 4 asks.

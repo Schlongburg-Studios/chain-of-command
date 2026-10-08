@@ -26,7 +26,20 @@ function M.new(env, S, deepcopy, opts)
         JOBS.police.grades[6] = { name = 'Chief', isboss = true, payment = 200 }
     end
     fw.JOBS = JOBS
-    S.files['qbx_core/shared/jobs.lua'] = S.files['qbx_core/shared/jobs.lua'] or '-- original jobs file'
+    -- What qbx_core/shared/jobs.lua looks like on disk before cmd_chain touches it: a plain table.
+    local function ser(v)
+        if type(v) ~= 'table' then return type(v) == 'string' and ('%q'):format(v) or tostring(v) end
+        local keys = {}
+        for k in pairs(v) do keys[#keys + 1] = k end
+        table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+        local out = {}
+        for _, k in ipairs(keys) do
+            out[#out + 1] = ('[%s] = %s'):format(type(k) == 'string' and ('%q'):format(k) or tostring(k), ser(v[k]))
+        end
+        return '{' .. table.concat(out, ',') .. '}'
+    end
+    S.originalJobs = 'return ' .. ser(JOBS)
+    S.files['qbx_core/shared/jobs.lua'] = S.files['qbx_core/shared/jobs.lua'] or S.originalJobs
 
     local P, online = {}, {}
     fw.P, fw.online = P, online
@@ -130,6 +143,16 @@ function M.new(env, S, deepcopy, opts)
         qbx:AddPlayerToJob(cid, job, grade)
         qbx:SetPlayerPrimaryJob(cid, job)
     end
+    ---qbx_core's SetJob with qbx:setjob_replaces = true (the recipe default): remove the current
+    ---primary job, THEN add the new one, as two separate events (server/player.lua SetJob).
+    function fw.externalSetJobReplacing(cid, job, grade)
+        local current = P[cid].job.name
+        if current ~= 'unemployed' then qbx:RemovePlayerFromJob(cid, current) end
+        if job ~= 'unemployed' then
+            qbx:AddPlayerToJob(cid, job, grade)
+            qbx:SetPlayerPrimaryJob(cid, job)
+        end
+    end
     function fw.externalRemoveJob(cid, job) qbx:RemovePlayerFromJob(cid, job) end
     function fw.setDuty(cid, onDuty)
         P[cid].job.onduty = onDuty
@@ -147,7 +170,7 @@ function M.new(env, S, deepcopy, opts)
     ---Parsed qbx_core/shared/jobs.lua as written by cmd_chain (nil if untouched).
     function fw.jobsFile()
         local text = S.files['qbx_core/shared/jobs.lua']
-        if not text or text == '-- original jobs file' then return nil end
+        if not text or text == S.originalJobs then return nil end
         return assert(load(text, 'jobs.lua', 't', {}))()
     end
 

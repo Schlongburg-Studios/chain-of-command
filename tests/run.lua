@@ -17,8 +17,8 @@ for _, a in ipairs(arg or {}) do
 end
 
 local runs = {
-    { framework = 'qbx', editable = true,  suites = { 'roster', 'sync', 'structure', 'qbx_multijob' } },
-    { framework = 'qb',  editable = true,  suites = { 'roster', 'sync', 'structure' } },
+    { framework = 'qbx', editable = true,  suites = { 'roster', 'sync', 'structure', 'qbx_multijob', 'jobs_file', 'boss_flags' } },
+    { framework = 'qb',  editable = true,  suites = { 'roster', 'sync', 'structure', 'boss_flags' } },
     { framework = 'qbx', editable = false, suites = { 'roster', 'sync', 'qbx_multijob' } },
     { framework = 'qb',  editable = false, suites = { 'roster', 'sync' } },
 }

@@ -91,6 +91,10 @@ local function checkNewGrade(ctx, grade)
     if not grade or not ctx.dept.ranks[grade] then return nil, 'invalid_grade' end
     local frameworkGrades = Bridge.getJobGrades(ctx.dept.job)
     if not frameworkGrades or not frameworkGrades[grade] then return nil, 'grade_missing_in_framework' end
+    -- A grade that is only in memory would vanish (with its holders) at the next restart.
+    if CC.jobsFileBroken and Bridge.gradeOnDisk and not Bridge.gradeOnDisk(ctx.dept.job, grade) then
+        return nil, 'jobs_file_unwritable'
+    end
     if not ctx.actor.console and grade >= ctx.actor.grade then return nil, 'rank_ceiling' end
     return grade
 end
@@ -401,6 +405,7 @@ end
 local function prepareStructure(actorSrc, deptId)
     if not CC.ready then return nil, 'not_ready' end
     if not CC.structureEnabled then return nil, 'structure_locked' end
+    if CC.jobsFileBroken then return nil, 'jobs_file_unwritable' end
     actorSrc = tonumber(actorSrc)
     if not actorSrc then return nil, 'actor_not_found' end
 

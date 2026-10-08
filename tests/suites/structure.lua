@@ -15,7 +15,8 @@ return function(E, T, Env, base)
     local g6, g0, g4 = fw.gradeData('police', 6), fw.gradeData('police', 0), fw.gradeData('police', 4)
     T.check('missing grades created with config pay', g6 and g6.name == 'Chief' and g6.payment == 200)
     T.check('existing grades renamed, framework pay kept', g0 and g0.name == 'Cadet' and g0.payment == 50)
-    T.check('other grade fields kept (isboss)', g4 and g4.name == 'Lieutenant' and g4.isboss == true)
+    T.check('other grade fields kept (pay)', g4 and g4.name == 'Lieutenant' and g4.payment == 150)
+    T.check('config boss flags applied (Chief is boss, Lieutenant no longer)', g6.isboss == true and g4.isboss == nil)
     T.check('boot cache written', S.files['cmd_chain/structure.cache.json'] ~= nil)
     T.check('no missing-grade problems after seeding', (function()
         for grade in pairs(CC.depts.lspd.ranks) do
@@ -28,8 +29,8 @@ return function(E, T, Env, base)
         local file = fw.jobsFile()
         T.check('qbx: jobs.lua written and valid Lua', file ~= nil)
         T.check('qbx: jobs.lua keeps every job type', file and file.police.type == 'leo' and file.mechanic.type == 'mechanic')
-        T.check('qbx: jobs.lua has the new grades', file and file.police.grades[6].name == 'Chief' and file.police.grades[4].bankAuth == true)
-        T.check('qbx: original jobs.lua backed up', S.files['qbx_core/shared/jobs.lua.cmd_chain-original.bak'] == '-- original jobs file')
+        T.check('qbx: jobs.lua has the new grades', file and file.police.grades[6].name == 'Chief' and file.police.grades[6].bankAuth == true and file.police.grades[4].bankAuth == nil and file.police.grades[4].isboss == nil)
+        T.check('qbx: original jobs.lua backed up', S.files['qbx_core/shared/jobs.lua.cmd_chain-original.bak'] == S.originalJobs)
     else
         local touched = false
         for path in pairs(S.files) do

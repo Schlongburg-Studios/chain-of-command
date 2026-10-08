@@ -52,6 +52,14 @@ function Env.new(opts)
 
     -- natives
     function env.CreateThread(fn) fn() end
+    -- SetTimeout: timers wait until a test calls S.flushTimers() (the real delay is irrelevant here)
+    S.timers = {}
+    function env.SetTimeout(_, fn) S.timers[#S.timers + 1] = fn end
+    function S.flushTimers()
+        local due = S.timers
+        S.timers = {}
+        for _, fn in ipairs(due) do fn() end
+    end
     env.Citizen = { CreateThread = env.CreateThread, Trace = print }
     function env.GetGameTimer()
         if not S.frozen then S.clock = S.clock + 2500 end
@@ -60,9 +68,16 @@ function Env.new(opts)
     function env.IsDuplicityVersion() return true end
     function env.GetCurrentResourceName() return 'cmd_chain' end
     function env.LoadResourceFile(res, file) return S.files[res .. '/' .. file] end
+    -- FiveM's sandbox: a resource may only write into its own folder unless server.cfg has
+    -- `add_filesystem_permission <writer> write <target>`. opts.grants lists the target resources
+    -- granted to cmd_chain (default qbx_core; pass grants = {} to see the sandbox refuse).
+    local grants = {}
+    for _, name in ipairs(opts.grants or { 'qbx_core' }) do grants[name] = true end
     function env.SaveResourceFile(res, file, data)
+        if res ~= 'cmd_chain' and not grants[res] then return false end
+        if S.denyAllWrites or (S.denyPattern and file:find(S.denyPattern, 1, true)) then return false end
         S.files[res .. '/' .. file] = data
-        return true
+        return 1 -- FiveM returns 1 on success (not true), false on failure
     end
     function env.IsPlayerAceAllowed(src, ace) return S.aces[tostring(src) .. ':' .. ace] == true end
 
@@ -89,6 +104,17 @@ function Env.new(opts)
             local r = {}
             for _, m in pairs(db.members) do r[#r + 1] = deepcopy(m) end
             return r
+        end
+        if sql:find('INSERT IGNORE INTO cmd_chain_members') and S.duringMemberWrite then
+            -- Real oxmysql yields here; another handler can run in the gap. Simulate that once.
+            local hook = S.duringMemberWrite
+            S.duringMemberWrite = nil
+            hook()
+        end
+        if sql:find('DELETE FROM cmd_chain_members') and S.duringMemberDelete then
+            local hook = S.duringMemberDelete
+            S.duringMemberDelete = nil
+            hook()
         end
         if sql:find('INSERT IGNORE INTO cmd_chain_members') then
             local k = p[1] .. ':' .. p[2]
@@ -142,7 +168,10 @@ function Env.new(opts)
     for _, file in ipairs({ 'config.lua', 'bridge/qbx.lua', 'bridge/qb.lua', 'server/audit.lua', 'server/main.lua', 'server/api.lua' }) do
         local chunk = assert(loadfile(resource .. file, 't', env))
         chunk()
-        if file == 'config.lua' then env.Config.Structure.editable = opts.editable end
+        if file == 'config.lua' then
+            env.Config.Structure.editable = opts.editable
+            if opts.config then opts.config(env.Config) end -- tests may change config.lua before it is compiled
+        end
     end
 
     local E = { env = env, S = S, fw = fw, opts = opts }

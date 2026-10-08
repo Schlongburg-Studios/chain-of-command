@@ -27,6 +27,11 @@ Config.Structure = {
 -- ranks: top to bottom. A rank has its own caps plus every cap of every rank below it.
 -- 'roster.manage_all' counts as every 'roster.*' capability plus 'structure.manage'.
 -- payment (optional): pay for new grades when seeding; existing framework pay is kept.
+-- isboss, bankAuth (optional, true or false): the framework's boss flags for that grade. They decide
+--   who gets boss menus (management, society bank) in other scripts. Applied at every start; the
+--   in-game rank editor does not change them. Leave them out to keep whatever the framework job has
+--   (the default police job marks its grade 4 as boss, which is the Lieutenant here, so set them
+--   explicitly). bankAuth exists on Qbox only; QBCore uses isboss.
 --
 -- Built-in capabilities:
 --   roster.hire, roster.fire, roster.promote (promote and demote),
@@ -41,9 +46,9 @@ Config.Departments = {
         job = 'police',
         callsignFormat = '^%d%-%a%-%d%d$',
         ranks = {
-            { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200 },
+            { grade = 6, name = 'Chief',      caps = { 'roster.manage_all' }, payment = 200, isboss = true, bankAuth = true },
             { grade = 5, name = 'Captain',    caps = { 'roster.promote', 'roster.fire' }, payment = 175 },
-            { grade = 4, name = 'Lieutenant', caps = { 'roster.hire', 'roster.set_division' } },
+            { grade = 4, name = 'Lieutenant', caps = { 'roster.hire', 'roster.set_division' }, isboss = false, bankAuth = false },
             { grade = 3, name = 'Sergeant',   caps = { 'roster.set_callsign', 'reports.approve' } },
             { grade = 2, name = 'Corporal',   caps = {} },
             { grade = 1, name = 'Officer',    caps = { 'reports.write' } },

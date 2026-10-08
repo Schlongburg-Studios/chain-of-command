@@ -9,6 +9,9 @@ if state ~= 'started' and state ~= 'starting' then return end
 local QBCore = exports['qb-core']:GetCoreObject()
 Bridge = { name = 'qb' }
 
+---Optional per-grade flags that config.lua ranks may set (Config.Departments). qb-core has no bankAuth.
+Bridge.gradeFlags = { 'isboss' }
+
 if not IsDuplicityVersion() then
     ---@param cb fun()
     function Bridge.onJobUpdate(cb)
@@ -143,6 +146,9 @@ function Bridge.upsertJobGrade(jobName, grade, data)
     local merged = job.grades[key] or {}
     merged.name = data.name
     merged.payment = data.payment
+    for _, flag in ipairs(Bridge.gradeFlags) do
+        if data[flag] ~= nil then merged[flag] = data[flag] or nil end -- false removes the key
+    end
     job.grades[key] = merged
     return updateJob(jobName, job)
 end
