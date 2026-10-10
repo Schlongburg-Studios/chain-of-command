@@ -27,8 +27,15 @@ cmd_chain/
 README.md  LICENSE  CHANGELOG.md  TESTING.md  .gitignore   (repo root)
 tests/                            automated tests (not shipped; see tests/README.md)
 release/                          GitHub release notes and Cfx.re forum post drafts
-dist/                             built release zips (git-ignored; build with git archive)
+dist/                             built release zips (git-ignored; build command below)
 ```
+
+## Building the release zip
+Build from the committed files only, so the zip matches the commit exactly (no tests, no cache file, no local edits). Keep `-c core.autocrlf=false`: without it, Git on Windows writes CRLF line endings into the zip.
+```bash
+git -c core.autocrlf=false archive --format=zip --prefix=cmd_chain/ -o dist/cmd_chain-v1.1.0.zip HEAD:cmd_chain
+```
+Change the version in the file name for each release.
 
 ## Definition of done (per change)
 1. It works on a clean QBCore server and a clean Qbox server.
